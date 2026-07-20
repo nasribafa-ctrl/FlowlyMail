@@ -34,7 +34,7 @@ interface GmailProfileResponse {
 
 /** Redirige vers le dashboard avec un code d'erreur lisible côté UI. */
 function redirectWithError(request: NextRequest, code: string) {
-  const url = new URL("/dashboard/parametres", request.url);
+  const url = new URL("/dashboard", request.url);
   url.searchParams.set("gmail_error", code);
   const response = NextResponse.redirect(url);
   response.cookies.delete(NONCE_COOKIE);
