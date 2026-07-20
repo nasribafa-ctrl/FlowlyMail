@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", "/dashboard/parametres");
+    loginUrl.searchParams.set("redirect", "/dashboard");
     return NextResponse.redirect(loginUrl);
   }
 
