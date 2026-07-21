@@ -26,13 +26,26 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const nomEntreprise = body?.nom_entreprise?.trim();
+  const infosMetier = body?.infos_metier?.trim();
+  const emailValidateur = body?.email_validateur?.trim();
+  const mode = body?.mode === "automatique" ? "automatique" : "validation";
+
   if (!nomEntreprise) {
     return NextResponse.json({ error: "nom_entreprise_required" }, { status: 400 });
+  }
+  if (!infosMetier) {
+    return NextResponse.json({ error: "infos_metier_required" }, { status: 400 });
+  }
+  if (!emailValidateur) {
+    return NextResponse.json({ error: "email_validateur_required" }, { status: 400 });
   }
 
   const service = createServiceSupabase();
 
-  // Un utilisateur ne doit pas pouvoir refaire l'onboarding une deuxième fois.
+  // Si un profil existe déjà (ex. tentative d'onboarding précédente
+  // interrompue), on met à jour l'entreprise existante avec les nouvelles
+  // données au lieu de les ignorer silencieusement — c'était le bug :
+  // un client qui recommençait l'onboarding perdait ses infos.
   const { data: existingProfile } = await service
     .from("profiles")
     .select("entreprise_id")
@@ -40,12 +53,32 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existingProfile) {
+    const { error: updateError } = await service
+      .from("entreprise")
+      .update({
+        nom: nomEntreprise,
+        infos_metier: infosMetier,
+        email_validateur: emailValidateur,
+        mode,
+      })
+      .eq("id", existingProfile.entreprise_id);
+
+    if (updateError) {
+      console.error("Mise à jour entreprise échouée:", updateError);
+      return NextResponse.json({ error: "entreprise_update_failed" }, { status: 500 });
+    }
+
     return NextResponse.json({ entreprise_id: existingProfile.entreprise_id });
   }
 
   const { data: entreprise, error: entrepriseError } = await service
     .from("entreprise")
-    .insert({ nom: nomEntreprise })
+    .insert({
+      nom: nomEntreprise,
+      infos_metier: infosMetier,
+      email_validateur: emailValidateur,
+      mode,
+    })
     .select("id")
     .single();
 
